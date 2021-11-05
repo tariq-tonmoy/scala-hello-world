@@ -1,5 +1,6 @@
 package concurrency.chapterfour
 
+import java.util.concurrent.ExecutionException
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.control.NonFatal
@@ -226,6 +227,81 @@ object Chapter4 {
         println(errs)
     }
 
+
+    def testBasicPromise = {
+        def executionWithSuccess = {
+            println("Starting: execuionWithSuccess")
+            Thread.sleep(1000)
+            "execuionWithSuccess"
+        }
+
+        def executionWithFailure: String = {
+            println("Starting: executionWithFailure")
+            Thread.sleep(5000)
+            21 / 0
+            "???"
+        }
+
+        def executionWithFatalError: String = {
+            println("Starting: executionWithFatalError")
+            for (i <- 0 to 10) {
+                Thread.sleep(1000)
+            }
+            ???
+        }
+
+        val future1 = CustomFuture.futureImpl(executionWithSuccess)
+        val future2 = CustomFuture.futureImpl(executionWithFailure)
+        val future3 = CustomFuture.futureImpl(executionWithFatalError)
+
+        Future {
+            CustomFuture.shutdown
+        }
+
+        val futureList = List(future3, future2, future1)
+        callbackFuture(futureList)
+
+    }
+
+    def callbackFuture[T](futureList: List[Future[T]]) = {
+        for {
+            future <- futureList
+            // same behavior
+            // future <- List(CustomFuture.futureImpl(executionWithSuccess), CustomFuture.futureImpl(executionWithFatalError), CustomFuture.futureImpl(executionWithFailure))
+        }
+        yield {
+            future.transform(res => Try(res))
+        }.map {
+            case Success(res) => {
+                println(s"Success: $res")
+            }
+            case Failure(ex) => {
+                println(s"Failure: $ex")
+            }
+        }
+    }
+
+    def testCancellationTimer = {
+        def future: String = {
+            println("In future")
+            Thread.sleep(5000)
+            "Hello world"
+        }
+
+        def timeout(timeoutMill: Long): String = {
+            println("in timeout")
+            Thread.sleep(timeoutMill)
+            throw new Exception("Timeout")
+        }
+
+        val futureAfterTimeout = CustomFuture.futureImpl(future) or CustomFuture.futureImpl(timeout(4000))
+        val futureBeforeTimeout = CustomFuture.futureImpl(future) or CustomFuture.futureImpl(timeout(10000))
+        Future {
+            CustomFuture.shutdown
+        }
+        callbackFuture(List(futureBeforeTimeout, futureAfterTimeout))
+    }
+
     @main def chapterFourTests = {
         testFutureSuccessFails
         testIOSupportPolling
@@ -235,7 +311,8 @@ object Chapter4 {
         testTryFuture
 
         testFatalErrors
-
+        testBasicPromise
+        testCancellationTimer
         Thread.sleep(Long.MaxValue)
     }
 }
