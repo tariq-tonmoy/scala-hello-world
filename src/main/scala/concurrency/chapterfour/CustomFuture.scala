@@ -30,8 +30,8 @@ object CustomFuture {
     }
 
     def shutdown = {
-        executionCtx.shutdown()
-        executionCtx.awaitTermination(3, TimeUnit.SECONDS)
-        println("executionCtx terminated")
+//        executionCtx.shutdown()
+//        executionCtx.awaitTermination(3, TimeUnit.SECONDS)
+//        println("executionCtx terminated")
     }
 }
